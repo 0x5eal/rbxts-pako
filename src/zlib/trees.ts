@@ -3,7 +3,7 @@
 import type * as TypedArrays from "../utils/typedArrays";
 type NumericArrayLike = TypedArrays.NumericArrayLike;
 
-const { Uint16Array, Uint8Array } = require("../utils/typedArrays") as typeof TypedArrays;
+const { Uint8Array } = require("../utils/typedArrays") as typeof TypedArrays;
 import { DeflateState } from "./deflate";
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler

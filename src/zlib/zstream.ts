@@ -2,7 +2,6 @@
 
 import type * as TypedArrays from "../utils/typedArrays"; 
 
-const { Uint8Array } = require("../utils/typedArrays") as typeof TypedArrays;
 const { Z_UNKNOWN } = require("./constants") as typeof import("./constants");
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
