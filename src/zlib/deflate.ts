@@ -19,11 +19,15 @@
 //   misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-import { _tr_init, _tr_stored_block, _tr_flush_block, _tr_tally, _tr_align, TreeDesc } from "./trees";
-import { adler32 } from "./adler32";
-import { crc32 } from "./crc32";
-import { Uint16Array, Uint8Array } from "../utils/buffs";
-import {
+import type { ZStream } from "./zstream";
+import type { TreeDesc } from "./trees";
+import type Messages from "./messages";
+import type * as TypedArrays from "../utils/typedArrays";
+
+const { _tr_init, _tr_stored_block, _tr_flush_block, _tr_tally, _tr_align } = require("./trees") as typeof import("./trees");
+const { adler32 } = require("./adler32") as typeof import("./adler32");
+const { crc32 } = require("./crc32") as typeof import("./crc32");
+const {
 	Z_FINISH,
 	Z_NO_FLUSH,
 	Z_FILTERED,
@@ -42,9 +46,9 @@ import {
 	Z_FULL_FLUSH,
 	Z_STREAM_END,
 	Z_DATA_ERROR,
-} from "./constants";
-import messages from "./messages";
-import { ZStream } from "./zstream";
+} = require("./constants") as typeof import("./constants");
+const messages = require("./messages") as typeof Messages;
+const { Uint8Array, Uint16Array } = require("../utils/typedArrays") as typeof TypedArrays;
 
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
@@ -96,7 +100,7 @@ const BS_FINISH_DONE = 4; /* finish done, accept no more input or output */
 
 const OS_CODE = 0x03; // Unix :) . Don't detect, use this default.
 
-const err = (strm: ZStream<DeflateState>, errorCode: keyof typeof messages) => {
+const err = (strm: ZStream<DeflateState>, errorCode: keyof typeof Messages) => {
 	strm.msg = messages[errorCode];
 	return errorCode;
 };
@@ -199,7 +203,7 @@ const putShortMSB = (s: DeflateState, b: number) => {
  * allocating a large strm->input buffer and copying from it.
  * (See also flush_pending()).
  */
-const read_buf = (strm: ZStream<DeflateState>, buf: Uint8Array, start: number, size: number) => {
+const read_buf = (strm: ZStream<DeflateState>, buf: TypedArrays.Uint8Array, start: number, size: number) => {
 	let len = strm.avail_in;
 
 	if (len > size) {
@@ -1207,7 +1211,7 @@ const lm_init = (s: DeflateState) => {
 export class DeflateState {
 	public strm!: ZStream<DeflateState>; /* pointer back to this zlib stream */
 	public status = 0; /* as the name implies */
-	public pending_buf!: Uint8Array; /* output still pending */
+	public pending_buf!: TypedArrays.Uint8Array; /* output still pending */
 	public pending_buf_size = 0; /* size of pending_buf */
 	public pending_out = 0; /* next pending byte to output to the stream */
 	public pending = 0; /* nb of bytes in the pending buffer */
@@ -1219,7 +1223,7 @@ export class DeflateState {
 		os: number;
 		extra_len: number;
 		comment: string | null;
-		extra: Uint8Array | null;
+		extra: TypedArrays.Uint8Array | null;
 		name: string | null;
 		hcrc: number;
 		text: number;
@@ -1232,7 +1236,7 @@ export class DeflateState {
 	public w_bits = 0; /* log2(w_size)  (8..16) */
 	public w_mask = 0; /* w_size - 1 */
 
-	public window!: Uint8Array;
+	public window!: TypedArrays.Uint8Array;
 	/* Sliding window. Input bytes are read into the second half of the window,
 	 * and move to the first half later to keep a dictionary of at least wSize
 	 * bytes. With this organization, matches are limited to a distance of
@@ -1245,13 +1249,13 @@ export class DeflateState {
 	 * is directly used as sliding window.
 	 */
 
-	public prev!: Uint16Array;
+	public prev!: TypedArrays.Uint16Array;
 	/* Link to older string with same hash index. To limit the size of this
 	 * array to 64K, this link is maintained only for the last 32K strings.
 	 * An index in this array is thus a window index modulo 32K.
 	 */
 
-	public head!: Uint16Array; /* Heads of the hash chains or NIL. */
+	public head!: TypedArrays.Uint16Array; /* Heads of the hash chains or NIL. */
 
 	public ins_h = 0; /* hash index of string to be inserted */
 	public hash_size = 0; /* number of elements in hash table */
@@ -1976,7 +1980,7 @@ export function deflateEnd(strm: ZStream<DeflateState>) {
  * Initializes the compression dictionary from the given byte
  * sequence without producing any compressed output.
  */
-export function deflateSetDictionary(strm: ZStream<DeflateState>, dictionary: Uint8Array) {
+export function deflateSetDictionary(strm: ZStream<DeflateState>, dictionary: TypedArrays.Uint8Array) {
 	let dictLength = dictionary.length;
 
 	if (deflateStateCheck(strm)) {

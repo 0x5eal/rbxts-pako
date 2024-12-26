@@ -1,6 +1,6 @@
 "use strict";
 
-import { NumericArrayLike } from "../utils/buffs";
+import type { NumericArrayLike } from "../utils/typedArrays";
 
 // Note: adler32 takes 12% for level 0 and 2% for level 6.
 // It isn't worth it to make additional optimizations as in original.

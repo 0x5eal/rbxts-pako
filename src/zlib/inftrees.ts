@@ -1,6 +1,9 @@
 "use strict";
 
-import { NumericArrayLike, Uint16Array, Uint8Array } from "../utils/buffs";
+import * as TypedArrays from "../utils/typedArrays";
+type NumericArrayLike = TypedArrays.NumericArrayLike;
+
+const { Uint8Array, Uint16Array } = require("../utils/typedArrays") as typeof TypedArrays;
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin

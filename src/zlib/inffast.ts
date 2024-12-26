@@ -1,7 +1,7 @@
 "use strict";
 
-import { InflateState } from "./inflate";
-import { ZStream } from "./zstream";
+import type { ZStream } from "./zstream";
+import type { InflateState } from "./inflate";
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin

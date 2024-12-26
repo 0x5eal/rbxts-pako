@@ -1,6 +1,6 @@
 "use strict";
 
-import { Uint8Array } from "../utils/buffs";
+import type { Uint8Array } from "../utils/typedArrays";
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin

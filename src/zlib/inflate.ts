@@ -19,10 +19,10 @@
 //   misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-import { adler32 } from "./adler32";
-import { crc32 } from "./crc32";
-import { inflate_fast } from "./inffast";
-import { inflate_table } from "./inftrees";
+const { adler32 } = require("./adler32") as typeof import("./adler32");
+const { crc32 } = require("./crc32") as typeof import("./crc32");
+const { inflate_fast } = require("./inffast") as typeof import("./inffast");
+const { inflate_table } = require("./inftrees") as typeof import("./inftrees");
 
 const CODES = 0;
 const LENS = 1;
@@ -31,7 +31,7 @@ const DISTS = 2;
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
 
-import { Int32Array, Uint16Array, Uint8Array } from "../utils/buffs";
+import { Int32Array, Uint16Array, Uint8Array } from "../utils/typedArrays";
 import {
 	Z_STREAM_ERROR,
 	Z_OK,

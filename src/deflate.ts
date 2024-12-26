@@ -1,13 +1,20 @@
 "use strict";
 
-import { DeflateState } from "./zlib/deflate";
-import * as zlibDeflate from "./zlib/deflate";
-import { ZStream } from "./zlib/zstream";
+import type { DeflateState } from "./zlib/deflate";
+import type Messages from "./zlib/messages"
+import type * as TypedArrays from "./utils/typedArrays"; 
+
+const { ZStream } = require("./zlib/zstream") as typeof import("./zlib/zstream");
+const zlibDeflate = require("./zlib/deflate") as typeof import("./zlib/deflate");
+const messages = require("./zlib/messages") as typeof Messages;
+
+const { assign, flattenChunks } = require("./utils/common") as typeof import("./utils/common");
+const { Uint8Array } = require("./utils/typedArrays") as typeof TypedArrays; 
 
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
 
-import {
+export const {
 	Z_NO_FLUSH,
 	Z_SYNC_FLUSH,
 	Z_FULL_FLUSH,
@@ -17,10 +24,7 @@ import {
 	Z_DEFAULT_COMPRESSION,
 	Z_DEFAULT_STRATEGY,
 	Z_DEFLATED,
-} from "./zlib/constants";
-import { assign, flattenChunks } from "./utils/common";
-import { Uint8Array } from "./utils/buffs";
-import messages from "./zlib/messages";
+} = require("./zlib/constants") as typeof import("./zlib/constants");
 
 /* ===========================================================================*/
 
@@ -119,15 +123,15 @@ type Options = {
 	raw: boolean;
 	gzip: boolean;
 	header?: DeflateState["gzhead"];
-	dictionary?: Uint8Array | string;
+	dictionary?: TypedArrays.Uint8Array | string;
 };
 
 export class Deflate {
-	public options: Exclude<Options, "dictionary"> & { dictionary?: Uint8Array };
-	public err: keyof typeof messages = Z_OK;
+	public options: Exclude<Options, "dictionary"> & { dictionary?: TypedArrays.Uint8Array };
+	public err: keyof typeof Messages = Z_OK;
 	public msg?: string;
 	public ended = false;
-	public chunks: Uint8Array[] = [];
+	public chunks: TypedArrays.Uint8Array[] = [];
 	public strm = new ZStream<DeflateState>();
 	public result?: buffer;
 
@@ -214,7 +218,7 @@ export class Deflate {
 	 * push(chunk, true);  // push last chunk
 	 * ```
 	 **/
-	push(data: Uint8Array | string, flush_mode: boolean | number) {
+	push(data: TypedArrays.Uint8Array | string, flush_mode: boolean | number) {
 		const strm = this.strm;
 		const { chunkSize } = this.options;
 		let status, _flush_mode;
@@ -234,7 +238,7 @@ export class Deflate {
 		strm.next_in = 0;
 		strm.avail_in = strm.input.length;
 
-		for (;;) {
+		for (; ;) {
 			if (strm.avail_out === 0) {
 				strm.output = new Uint8Array(chunkSize);
 				strm.next_out = 0;
@@ -287,7 +291,7 @@ export class Deflate {
 	 * By default, stores data blocks in `chunks[]` property and glue
 	 * those in `onEnd`. Override this handler, if you need another behaviour.
 	 **/
-	onData(chunk: Uint8Array) {
+	onData(chunk: TypedArrays.Uint8Array) {
 		this.chunks.push(chunk);
 	}
 
@@ -300,7 +304,7 @@ export class Deflate {
 	 * complete (Z_FINISH). By default - join collected chunks,
 	 * free memory and fill `results` / `err` properties.
 	 **/
-	onEnd(status: keyof typeof messages) {
+	onEnd(status: keyof typeof Messages) {
 		// On success - join
 		if (status === Z_OK) {
 			this.result = flattenChunks(this.chunks.map((chunk) => chunk.buf));
@@ -343,7 +347,7 @@ export class Deflate {
  * console.log(pako.deflate(data));
  * ```
  **/
-export function deflate(input: Uint8Array, options: Partial<Options> = {}) {
+export function deflate(input: TypedArrays.Uint8Array, options: Partial<Options> = {}) {
 	const deflator = new Deflate(options);
 
 	deflator.push(input, true);
@@ -364,10 +368,8 @@ export function deflate(input: Uint8Array, options: Partial<Options> = {}) {
  * The same as [[deflate]], but creates raw data, without wrapper
  * (header and adler32 crc).
  **/
-export function deflateRaw(input: Uint8Array, options: Exclude<Partial<Options>, "raw"> = {}) {
+export function deflateRaw(input: TypedArrays.Uint8Array, options: Exclude<Partial<Options>, "raw"> = {}) {
 	options = options || {};
 	options.raw = true;
 	return deflate(input, options);
 }
-
-export * from "./zlib/constants";

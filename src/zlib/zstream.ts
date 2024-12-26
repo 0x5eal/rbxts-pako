@@ -1,7 +1,9 @@
 "use strict";
 
-import { Uint8Array } from "../utils/buffs";
-import { Z_UNKNOWN } from "./constants";
+import type * as TypedArrays from "../utils/typedArrays"; 
+
+const { Uint8Array } = require("../utils/typedArrays") as typeof TypedArrays;
+const { Z_UNKNOWN } = require("./constants") as typeof import("./constants");
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
@@ -24,14 +26,14 @@ import { Z_UNKNOWN } from "./constants";
 
 export class ZStream<State> {
 	/* next input byte */
-	public input!: Uint8Array; // JS specific, because we have no pointers
+	public input!: TypedArrays.Uint8Array; // JS specific, because we have no pointers
 	public next_in = 0;
 	/* number of bytes available at input */
 	public avail_in = 0;
 	/* total number of input bytes read so far */
 	public total_in = 0;
 	/* next output byte should be put there */
-	public output!: Uint8Array; // JS specific, because we have no pointers
+	public output!: TypedArrays.Uint8Array; // JS specific, because we have no pointers
 	public next_out = 0;
 	/* remaining free space at output */
 	public avail_out = 0;

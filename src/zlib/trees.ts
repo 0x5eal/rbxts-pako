@@ -1,6 +1,9 @@
 "use strict";
 
-import { NumericArrayLike, Uint16Array, Uint8Array } from "../utils/buffs";
+import type * as TypedArrays from "../utils/typedArrays";
+type NumericArrayLike = TypedArrays.NumericArrayLike;
+
+const { Uint16Array, Uint8Array } = require("../utils/typedArrays") as typeof TypedArrays;
 import { DeflateState } from "./deflate";
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
@@ -160,7 +163,7 @@ class StaticTreeDesc {
 	public has_stree: boolean;
 	constructor(
 		public static_tree: Array<number>,
-		public extra_bits: Uint8Array,
+		public extra_bits: TypedArrays.Uint8Array,
 		public extra_base: number,
 		public elems: number,
 		public max_length: number,
@@ -176,7 +179,7 @@ let static_bl_desc: StaticTreeDesc;
 export class TreeDesc {
 	public max_code = 0; /* largest code with non zero frequency */
 	constructor(
-		public dyn_tree: Uint16Array,
+		public dyn_tree: TypedArrays.Uint16Array,
 		public stat_desc: StaticTreeDesc,
 	) {}
 }

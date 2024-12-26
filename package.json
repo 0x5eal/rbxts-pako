@@ -40,5 +40,8 @@
     "prettier": "^3.4.2",
     "roblox-ts": "^3.0.0",
     "typescript": "^5.7.2"
+  },
+  "patchedDependencies": {
+    "@rbxts/types@1.0.813": "patches/@rbxts%2Ftypes@1.0.813.patch"
   }
 }

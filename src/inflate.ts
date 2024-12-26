@@ -1,14 +1,20 @@
 "use strict";
 
-import { type InflateState } from "./zlib/inflate";
-import * as zlibInflate from "./zlib/inflate";
-import { ZStream } from "./zlib/zstream";
-import { GZheader } from "./zlib/gzheader";
+import type { InflateState } from "./zlib/inflate";
+import type Messages from "./zlib/messages";  
+import type * as TypedArrays from "./utils/typedArrays";
+
+const zlibInflate = require("./zlib/inflate") as typeof import("./zlib/inflate");
+const { ZStream } = require("./zlib/zstream") as typeof import("./zlib/zstream");
+const { GZheader } = require("./zlib/gzheader") as typeof import("./zlib/gzheader");
+const messages = require("./zlib/messages") as typeof Messages;
+
+const { Uint8Array } = require("./utils/typedArrays") as typeof TypedArrays;
+const { assign, flattenChunks } = require("./utils/common") as typeof import("./utils/common");
 
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
-
-import {
+export const {
 	Z_NO_FLUSH,
 	Z_FINISH,
 	Z_OK,
@@ -17,10 +23,7 @@ import {
 	Z_STREAM_ERROR,
 	Z_DATA_ERROR,
 	Z_MEM_ERROR,
-} from "./zlib/constants";
-import { Uint8Array } from "./utils/buffs";
-import { assign, flattenChunks } from "./utils/common";
-import messages from "./zlib/messages";
+} = require("./zlib/constants") as typeof import("./zlib/constants");
 
 /* ===========================================================================*/
 
@@ -106,15 +109,15 @@ type Options = {
 	windowBits: number;
 	to: string;
 	raw: boolean;
-	dictionary?: string | Uint8Array;
+	dictionary?: string | TypedArrays.Uint8Array;
 };
 
 export class Inflate {
-	public options: Exclude<Options, "dictionary"> & { dictionary?: Uint8Array };
-	public err: keyof typeof messages = Z_OK;
+	public options: Exclude<Options, "dictionary"> & { dictionary?: TypedArrays.Uint8Array };
+	public err: keyof typeof Messages = Z_OK;
 	public msg?: string;
 	public ended = false;
-	public chunks: Uint8Array[] = [];
+	public chunks: TypedArrays.Uint8Array[] = [];
 	public strm = new ZStream<InflateState>();
 	public header = new GZheader();
 	public result?: buffer | string;
@@ -212,7 +215,7 @@ export class Inflate {
 	 * push(chunk, true);  // push last chunk
 	 * ```
 	 **/
-	push(data: Uint8Array, flush_mode: number | boolean) {
+	push(data: TypedArrays.Uint8Array, flush_mode: number | boolean) {
 		const strm = this.strm;
 		const { chunkSize, dictionary } = this.options;
 		let status, _flush_mode, last_avail_out;
@@ -298,7 +301,7 @@ export class Inflate {
 	 * By default, stores data blocks in `chunks[]` property and glue
 	 * those in `onEnd`. Override this handler, if you need another behaviour.
 	 **/
-	onData(chunk: Uint8Array) {
+	onData(chunk: TypedArrays.Uint8Array) {
 		this.chunks.push(chunk);
 	}
 
@@ -311,7 +314,7 @@ export class Inflate {
 	 * complete (Z_FINISH). By default - join collected chunks,
 	 * free memory and fill `results` / `err` properties.
 	 **/
-	onEnd(status: keyof typeof messages) {
+	onEnd(status: keyof typeof Messages) {
 		// On success - join
 		if (status === Z_OK) {
 			if (this.options.to === "string") {
@@ -365,7 +368,7 @@ export class Inflate {
  * }
  * ```
  **/
-export function inflate(input: Uint8Array, options: Partial<Options> = {}) {
+export function inflate(input: TypedArrays.Uint8Array, options: Partial<Options> = {}) {
 	const inflator = new Inflate(options);
 
 	inflator.push(input, true);
@@ -384,10 +387,8 @@ export function inflate(input: Uint8Array, options: Partial<Options> = {}) {
  * The same as [[inflate]], but creates raw data, without wrapper
  * (header and adler32 crc).
  **/
-export function inflateRaw(input: Uint8Array, options: Exclude<Partial<Options>, "raw"> = {}) {
+export function inflateRaw(input: TypedArrays.Uint8Array, options: Exclude<Partial<Options>, "raw"> = {}) {
 	options = options || {};
 	options.raw = true;
 	return inflate(input, options);
 }
-
-export * from "./zlib/constants";

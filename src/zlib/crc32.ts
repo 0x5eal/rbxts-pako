@@ -1,6 +1,9 @@
 "use strict";
 
-import { NumericArrayLike, Uint32Array } from "../utils/buffs";
+import type * as TypedArrays from "../utils/typedArrays";
+type NumericArrayLike = TypedArrays.NumericArrayLike;
+
+const { Uint32Array } = require("../utils/typedArrays") as typeof TypedArrays;
 
 // Note: we can't get significant speed boost here.
 // So write code to minimize size - no pregenerated tables
