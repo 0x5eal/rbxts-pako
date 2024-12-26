@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
@@ -19,14 +19,14 @@
 //   misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-module.exports = {
-  2:      'need dictionary',     /* Z_NEED_DICT       2  */
-  1:      'stream end',          /* Z_STREAM_END      1  */
-  0:      '',                    /* Z_OK              0  */
-  '-1':   'file error',          /* Z_ERRNO         (-1) */
-  '-2':   'stream error',        /* Z_STREAM_ERROR  (-2) */
-  '-3':   'data error',          /* Z_DATA_ERROR    (-3) */
-  '-4':   'insufficient memory', /* Z_MEM_ERROR     (-4) */
-  '-5':   'buffer error',        /* Z_BUF_ERROR     (-5) */
-  '-6':   'incompatible version' /* Z_VERSION_ERROR (-6) */
+export default {
+	2: "need dictionary" /* Z_NEED_DICT       2  */,
+	1: "stream end" /* Z_STREAM_END      1  */,
+	0: "" /* Z_OK              0  */,
+	[-1]: "file error" /* Z_ERRNO         (-1) */,
+	[-2]: "stream error" /* Z_STREAM_ERROR  (-2) */,
+	[-3]: "data error" /* Z_DATA_ERROR    (-3) */,
+	[-4]: "insufficient memory" /* Z_MEM_ERROR     (-4) */,
+	[-5]: "buffer error" /* Z_BUF_ERROR     (-5) */,
+	[-6]: "incompatible version" /* Z_VERSION_ERROR (-6) */,
 };

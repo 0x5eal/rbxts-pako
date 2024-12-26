@@ -1,48 +1,29 @@
-'use strict';
+export function assign<T extends Record<keyof any, any>>(obj: T, ...sources: Partial<T>[]): T {
+	for (const source of sources) {
+		if (!typeIs(source, "table")) {
+			error(source + "must be non-object");
+		}
 
+		for (const [k, v] of pairs(source)) {
+			obj[k as keyof typeof obj] = v as T[keyof T];
+		}
+	}
 
-const _has = (obj, key) => {
-  return Object.prototype.hasOwnProperty.call(obj, key);
-};
+	return obj;
+}
 
-module.exports.assign = function (obj /*from1, from2, from3, ...*/) {
-  const sources = Array.prototype.slice.call(arguments, 1);
-  while (sources.length) {
-    const source = sources.shift();
-    if (!source) { continue; }
+export function flattenChunks(chunks: buffer[]): buffer {
+	// calculate data length
+	const len = chunks.reduce((acc, chunk) => acc + buffer.len(chunk), 0);
 
-    if (typeof source !== 'object') {
-      throw new TypeError(source + 'must be non-object');
-    }
+	// join chunks
+	const result = buffer.create(len);
+	let offset = 0;
 
-    for (const p in source) {
-      if (_has(source, p)) {
-        obj[p] = source[p];
-      }
-    }
-  }
+	for (const chunk of chunks) {
+		buffer.copy(result, offset, chunk);
+		offset += buffer.len(chunk);
+	}
 
-  return obj;
-};
-
-
-// Join array of chunks to single array.
-module.exports.flattenChunks = (chunks) => {
-  // calculate data length
-  let len = 0;
-
-  for (let i = 0, l = chunks.length; i < l; i++) {
-    len += chunks[i].length;
-  }
-
-  // join chunks
-  const result = new Uint8Array(len);
-
-  for (let i = 0, pos = 0, l = chunks.length; i < l; i++) {
-    let chunk = chunks[i];
-    result.set(chunk, pos);
-    pos += chunk.length;
-  }
-
-  return result;
-};
+	return result;
+}

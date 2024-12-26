@@ -1,25 +1,28 @@
-'use strict';
+"use strict";
 
-
-const zlib_inflate = require('./zlib/inflate');
-const utils        = require('./utils/common');
-const strings      = require('./utils/strings');
-const msg          = require('./zlib/messages');
-const ZStream      = require('./zlib/zstream');
-const GZheader     = require('./zlib/gzheader');
-
-const toString = Object.prototype.toString;
+import { type InflateState } from "./zlib/inflate";
+import * as zlibInflate from "./zlib/inflate";
+import { ZStream } from "./zlib/zstream";
+import { GZheader } from "./zlib/gzheader";
 
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
 
-const {
-  Z_NO_FLUSH, Z_FINISH,
-  Z_OK, Z_STREAM_END, Z_NEED_DICT, Z_STREAM_ERROR, Z_DATA_ERROR, Z_MEM_ERROR
-} = require('./zlib/constants');
+import {
+	Z_NO_FLUSH,
+	Z_FINISH,
+	Z_OK,
+	Z_STREAM_END,
+	Z_NEED_DICT,
+	Z_STREAM_ERROR,
+	Z_DATA_ERROR,
+	Z_MEM_ERROR,
+} from "./zlib/constants";
+import { Uint8Array } from "./utils/buffs";
+import { assign, flattenChunks } from "./utils/common";
+import messages from "./zlib/messages";
 
 /* ===========================================================================*/
-
 
 /**
  * class Inflate
@@ -55,7 +58,6 @@ const {
  *
  * Error message, if [[Inflate.err]] != 0
  **/
-
 
 /**
  * new Inflate(options)
@@ -98,243 +100,231 @@ const {
  * console.log(inflate.result);
  * ```
  **/
-function Inflate(options) {
-  this.options = utils.assign({
-    chunkSize: 1024 * 64,
-    windowBits: 15,
-    to: ''
-  }, options || {});
 
-  const opt = this.options;
+type Options = {
+	chunkSize: number;
+	windowBits: number;
+	to: string;
+	raw: boolean;
+	dictionary?: string | Uint8Array;
+};
 
-  // Force window size for `raw` data, if not set directly,
-  // because we have no header for autodetect.
-  if (opt.raw && (opt.windowBits >= 0) && (opt.windowBits < 16)) {
-    opt.windowBits = -opt.windowBits;
-    if (opt.windowBits === 0) { opt.windowBits = -15; }
-  }
+export class Inflate {
+	public options: Exclude<Options, "dictionary"> & { dictionary?: Uint8Array };
+	public err: keyof typeof messages = Z_OK;
+	public msg?: string;
+	public ended = false;
+	public chunks: Uint8Array[] = [];
+	public strm = new ZStream<InflateState>();
+	public header = new GZheader();
+	public result?: buffer | string;
 
-  // If `windowBits` not defined (and mode not raw) - set autodetect flag for gzip/deflate
-  if ((opt.windowBits >= 0) && (opt.windowBits < 16) &&
-      !(options && options.windowBits)) {
-    opt.windowBits += 32;
-  }
+	constructor(options?: Partial<Options>) {
+		this.options = assign(
+			{
+				chunkSize: 1024 * 64,
+				windowBits: 15,
+				to: "",
+				raw: false,
+				dictionary: undefined,
+			},
+			options ?? {},
+		) as unknown as typeof this.options;
 
-  // Gzip header has no info about windows size, we can do autodetect only
-  // for deflate. So, if window size not set, force it to max when gzip possible
-  if ((opt.windowBits > 15) && (opt.windowBits < 48)) {
-    // bit 3 (16) -> gzipped data
-    // bit 4 (32) -> autodetect gzip/deflate
-    if ((opt.windowBits & 15) === 0) {
-      opt.windowBits |= 15;
-    }
-  }
+		const opt = this.options;
 
-  this.err    = 0;      // error code, if happens (0 = Z_OK)
-  this.msg    = '';     // error message
-  this.ended  = false;  // used to avoid multiple onEnd() calls
-  this.chunks = [];     // chunks of compressed data
+		// Force window size for `raw` data, if not set directly,
+		// because we have no header for autodetect.
+		if (opt.raw && opt.windowBits >= 0 && opt.windowBits < 16) {
+			opt.windowBits = -opt.windowBits;
+			if (opt.windowBits === 0) {
+				opt.windowBits = -15;
+			}
+		}
 
-  this.strm   = new ZStream();
-  this.strm.avail_out = 0;
+		// If `windowBits` not defined (and mode not raw) - set autodetect flag for gzip/deflate
+		if (opt.windowBits >= 0 && opt.windowBits < 16 && !(options && options.windowBits)) {
+			opt.windowBits += 32;
+		}
 
-  let status  = zlib_inflate.inflateInit2(
-    this.strm,
-    opt.windowBits
-  );
+		// Gzip header has no info about windows size, we can do autodetect only
+		// for deflate. So, if window size not set, force it to max when gzip possible
+		if (opt.windowBits > 15 && opt.windowBits < 48) {
+			// bit 3 (16) -> gzipped data
+			// bit 4 (32) -> autodetect gzip/deflate
+			if ((opt.windowBits & 15) === 0) {
+				opt.windowBits |= 15;
+			}
+		}
 
-  if (status !== Z_OK) {
-    throw new Error(msg[status]);
-  }
+		if (opt.dictionary) {
+			// Convert data if needed
+			let dict = opt.dictionary;
+			if (typeIs(dict, "string")) {
+				dict = Uint8Array.from(buffer.fromstring(dict));
+			}
 
-  this.header = new GZheader();
+			opt.dictionary = dict;
+		}
 
-  zlib_inflate.inflateGetHeader(this.strm, this.header);
+		this.strm.avail_out = 0;
 
-  // Setup dictionary
-  if (opt.dictionary) {
-    // Convert data if needed
-    if (typeof opt.dictionary === 'string') {
-      opt.dictionary = strings.string2buf(opt.dictionary);
-    } else if (toString.call(opt.dictionary) === '[object ArrayBuffer]') {
-      opt.dictionary = new Uint8Array(opt.dictionary);
-    }
-    if (opt.raw) { //In raw mode we need to set the dictionary early
-      status = zlib_inflate.inflateSetDictionary(this.strm, opt.dictionary);
-      if (status !== Z_OK) {
-        throw new Error(msg[status]);
-      }
-    }
-  }
+		const { windowBits, dictionary, raw } = opt;
+		const status = zlibInflate.inflateInit2(this.strm, windowBits);
+
+		if (status !== Z_OK) {
+			error(messages[status]);
+		}
+
+		zlibInflate.inflateGetHeader(this.strm, this.header);
+
+		if (dictionary && raw) {
+			//In raw mode we need to set the dictionary early
+			const status = zlibInflate.inflateSetDictionary(this.strm, dictionary);
+			if (status !== Z_OK) {
+				error(messages[status]);
+			}
+		}
+	}
+
+	/**
+	 * Inflate#push(data[, flush_mode]) -> Boolean
+	 * - data (Uint8Array|ArrayBuffer): input data
+	 * - flush_mode (Number|Boolean): 0..6 for corresponding Z_NO_FLUSH..Z_TREE
+	 *   flush modes. See constants. Skipped or `false` means Z_NO_FLUSH,
+	 *   `true` means Z_FINISH.
+	 *
+	 * Sends input data to inflate pipe, generating [[Inflate#onData]] calls with
+	 * new output chunks. Returns `true` on success. If end of stream detected,
+	 * [[Inflate#onEnd]] will be called.
+	 *
+	 * `flush_mode` is not needed for normal operation, because end of stream
+	 * detected automatically. You may try to use it for advanced things, but
+	 * this functionality was not tested.
+	 *
+	 * On fail call [[Inflate#onEnd]] with error code and return false.
+	 *
+	 * ##### Example
+	 *
+	 * ```javascript
+	 * push(chunk, false); // push one of data chunks
+	 * ...
+	 * push(chunk, true);  // push last chunk
+	 * ```
+	 **/
+	push(data: Uint8Array, flush_mode: number | boolean) {
+		const strm = this.strm;
+		const { chunkSize, dictionary } = this.options;
+		let status, _flush_mode, last_avail_out;
+
+		if (this.ended) return false;
+
+		if (flush_mode === ~~flush_mode) _flush_mode = flush_mode;
+		else _flush_mode = flush_mode === true ? Z_FINISH : Z_NO_FLUSH;
+
+		strm.input = data;
+
+		strm.next_in = 0;
+		strm.avail_in = strm.input.length;
+
+		for (;;) {
+			if (strm.avail_out === 0) {
+				strm.output = new Uint8Array(chunkSize);
+				strm.next_out = 0;
+				strm.avail_out = chunkSize;
+			}
+
+			status = zlibInflate.inflate(strm, _flush_mode);
+
+			if (status === Z_NEED_DICT && dictionary) {
+				status = zlibInflate.inflateSetDictionary(strm, dictionary);
+
+				if (status === Z_OK) {
+					status = zlibInflate.inflate(strm, _flush_mode);
+				} else if (status === Z_DATA_ERROR) {
+					// Replace code with more verbose
+					status = Z_NEED_DICT;
+				}
+			}
+
+			// Skip snyc markers if more data follows and not raw mode
+			while (strm.avail_in > 0 && status === Z_STREAM_END && strm.state.wrap > 0 && data[strm.next_in] !== 0) {
+				zlibInflate.inflateReset(strm);
+				status = zlibInflate.inflate(strm, _flush_mode);
+			}
+
+			switch (status) {
+				case Z_STREAM_ERROR:
+				case Z_DATA_ERROR:
+				case Z_NEED_DICT:
+				case Z_MEM_ERROR:
+					this.onEnd(status);
+					this.ended = true;
+					return false;
+			}
+
+			// Remember real `avail_out` value, because we may patch out buffer content
+			// to align utf8 strings boundaries.
+			last_avail_out = strm.avail_out;
+
+			if (strm.next_out && (strm.avail_out === 0 || status === Z_STREAM_END)) {
+				this.onData(
+					strm.output.length === strm.next_out ? strm.output : strm.output.subarray(0, strm.next_out),
+				);
+			}
+
+			// Must repeat iteration if out buffer is full
+			if (status === Z_OK && last_avail_out === 0) continue;
+
+			// Finalize if end of stream reached.
+			if (status === Z_STREAM_END) {
+				const status = zlibInflate.inflateEnd(this.strm);
+				this.onEnd(status);
+				this.ended = true;
+				return true;
+			}
+
+			if (strm.avail_in === 0) break;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Inflate#onData(chunk) -> Void
+	 * - chunk (Uint8Array|String): output data. When string output requested,
+	 *   each chunk will be string.
+	 *
+	 * By default, stores data blocks in `chunks[]` property and glue
+	 * those in `onEnd`. Override this handler, if you need another behaviour.
+	 **/
+	onData(chunk: Uint8Array) {
+		this.chunks.push(chunk);
+	}
+
+	/**
+	 * Inflate#onEnd(status) -> Void
+	 * - status (Number): inflate status. 0 (Z_OK) on success,
+	 *   other if not.
+	 *
+	 * Called either after you tell inflate that the input stream is
+	 * complete (Z_FINISH). By default - join collected chunks,
+	 * free memory and fill `results` / `err` properties.
+	 **/
+	onEnd(status: keyof typeof messages) {
+		// On success - join
+		if (status === Z_OK) {
+			if (this.options.to === "string") {
+				this.result = this.chunks.join("");
+			} else {
+				this.result = flattenChunks(this.chunks.map((chunk) => chunk.buf));
+			}
+		}
+		this.chunks = [];
+		this.err = status;
+		this.msg = this.strm.msg;
+	}
 }
-
-/**
- * Inflate#push(data[, flush_mode]) -> Boolean
- * - data (Uint8Array|ArrayBuffer): input data
- * - flush_mode (Number|Boolean): 0..6 for corresponding Z_NO_FLUSH..Z_TREE
- *   flush modes. See constants. Skipped or `false` means Z_NO_FLUSH,
- *   `true` means Z_FINISH.
- *
- * Sends input data to inflate pipe, generating [[Inflate#onData]] calls with
- * new output chunks. Returns `true` on success. If end of stream detected,
- * [[Inflate#onEnd]] will be called.
- *
- * `flush_mode` is not needed for normal operation, because end of stream
- * detected automatically. You may try to use it for advanced things, but
- * this functionality was not tested.
- *
- * On fail call [[Inflate#onEnd]] with error code and return false.
- *
- * ##### Example
- *
- * ```javascript
- * push(chunk, false); // push one of data chunks
- * ...
- * push(chunk, true);  // push last chunk
- * ```
- **/
-Inflate.prototype.push = function (data, flush_mode) {
-  const strm = this.strm;
-  const chunkSize = this.options.chunkSize;
-  const dictionary = this.options.dictionary;
-  let status, _flush_mode, last_avail_out;
-
-  if (this.ended) return false;
-
-  if (flush_mode === ~~flush_mode) _flush_mode = flush_mode;
-  else _flush_mode = flush_mode === true ? Z_FINISH : Z_NO_FLUSH;
-
-  // Convert data if needed
-  if (toString.call(data) === '[object ArrayBuffer]') {
-    strm.input = new Uint8Array(data);
-  } else {
-    strm.input = data;
-  }
-
-  strm.next_in = 0;
-  strm.avail_in = strm.input.length;
-
-  for (;;) {
-    if (strm.avail_out === 0) {
-      strm.output = new Uint8Array(chunkSize);
-      strm.next_out = 0;
-      strm.avail_out = chunkSize;
-    }
-
-    status = zlib_inflate.inflate(strm, _flush_mode);
-
-    if (status === Z_NEED_DICT && dictionary) {
-      status = zlib_inflate.inflateSetDictionary(strm, dictionary);
-
-      if (status === Z_OK) {
-        status = zlib_inflate.inflate(strm, _flush_mode);
-      } else if (status === Z_DATA_ERROR) {
-        // Replace code with more verbose
-        status = Z_NEED_DICT;
-      }
-    }
-
-    // Skip snyc markers if more data follows and not raw mode
-    while (strm.avail_in > 0 &&
-           status === Z_STREAM_END &&
-           strm.state.wrap > 0 &&
-           data[strm.next_in] !== 0)
-    {
-      zlib_inflate.inflateReset(strm);
-      status = zlib_inflate.inflate(strm, _flush_mode);
-    }
-
-    switch (status) {
-      case Z_STREAM_ERROR:
-      case Z_DATA_ERROR:
-      case Z_NEED_DICT:
-      case Z_MEM_ERROR:
-        this.onEnd(status);
-        this.ended = true;
-        return false;
-    }
-
-    // Remember real `avail_out` value, because we may patch out buffer content
-    // to align utf8 strings boundaries.
-    last_avail_out = strm.avail_out;
-
-    if (strm.next_out) {
-      if (strm.avail_out === 0 || status === Z_STREAM_END) {
-
-        if (this.options.to === 'string') {
-
-          let next_out_utf8 = strings.utf8border(strm.output, strm.next_out);
-
-          let tail = strm.next_out - next_out_utf8;
-          let utf8str = strings.buf2string(strm.output, next_out_utf8);
-
-          // move tail & realign counters
-          strm.next_out = tail;
-          strm.avail_out = chunkSize - tail;
-          if (tail) strm.output.set(strm.output.subarray(next_out_utf8, next_out_utf8 + tail), 0);
-
-          this.onData(utf8str);
-
-        } else {
-          this.onData(strm.output.length === strm.next_out ? strm.output : strm.output.subarray(0, strm.next_out));
-        }
-      }
-    }
-
-    // Must repeat iteration if out buffer is full
-    if (status === Z_OK && last_avail_out === 0) continue;
-
-    // Finalize if end of stream reached.
-    if (status === Z_STREAM_END) {
-      status = zlib_inflate.inflateEnd(this.strm);
-      this.onEnd(status);
-      this.ended = true;
-      return true;
-    }
-
-    if (strm.avail_in === 0) break;
-  }
-
-  return true;
-};
-
-
-/**
- * Inflate#onData(chunk) -> Void
- * - chunk (Uint8Array|String): output data. When string output requested,
- *   each chunk will be string.
- *
- * By default, stores data blocks in `chunks[]` property and glue
- * those in `onEnd`. Override this handler, if you need another behaviour.
- **/
-Inflate.prototype.onData = function (chunk) {
-  this.chunks.push(chunk);
-};
-
-
-/**
- * Inflate#onEnd(status) -> Void
- * - status (Number): inflate status. 0 (Z_OK) on success,
- *   other if not.
- *
- * Called either after you tell inflate that the input stream is
- * complete (Z_FINISH). By default - join collected chunks,
- * free memory and fill `results` / `err` properties.
- **/
-Inflate.prototype.onEnd = function (status) {
-  // On success - join
-  if (status === Z_OK) {
-    if (this.options.to === 'string') {
-      this.result = this.chunks.join('');
-    } else {
-      this.result = utils.flattenChunks(this.chunks);
-    }
-  }
-  this.chunks = [];
-  this.err = status;
-  this.msg = this.strm.msg;
-};
-
 
 /**
  * inflate(data[, options]) -> Uint8Array|String
@@ -375,17 +365,16 @@ Inflate.prototype.onEnd = function (status) {
  * }
  * ```
  **/
-function inflate(input, options) {
-  const inflator = new Inflate(options);
+export function inflate(input: Uint8Array, options: Partial<Options> = {}) {
+	const inflator = new Inflate(options);
 
-  inflator.push(input);
+	inflator.push(input, true);
 
-  // That will never happens, if you don't cheat with options :)
-  if (inflator.err) throw inflator.msg || msg[inflator.err];
+	// That will never happens, if you don't cheat with options :)
+	if (inflator.err) error(inflator.msg || messages[inflator.err]);
 
-  return inflator.result;
+	return inflator.result;
 }
-
 
 /**
  * inflateRaw(data[, options]) -> Uint8Array|String
@@ -395,25 +384,10 @@ function inflate(input, options) {
  * The same as [[inflate]], but creates raw data, without wrapper
  * (header and adler32 crc).
  **/
-function inflateRaw(input, options) {
-  options = options || {};
-  options.raw = true;
-  return inflate(input, options);
+export function inflateRaw(input: Uint8Array, options: Exclude<Partial<Options>, "raw"> = {}) {
+	options = options || {};
+	options.raw = true;
+	return inflate(input, options);
 }
 
-
-/**
- * ungzip(data[, options]) -> Uint8Array|String
- * - data (Uint8Array|ArrayBuffer): input data to decompress.
- * - options (Object): zlib inflate options.
- *
- * Just shortcut to [[inflate]], because it autodetects format
- * by header.content. Done for convenience.
- **/
-
-
-module.exports.Inflate = Inflate;
-module.exports.inflate = inflate;
-module.exports.inflateRaw = inflateRaw;
-module.exports.ungzip = inflate;
-module.exports.constants = require('./zlib/constants');
+export * from "./zlib/constants";

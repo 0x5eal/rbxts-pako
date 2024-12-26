@@ -1,27 +1,28 @@
-'use strict';
+"use strict";
 
-
-const zlib_deflate = require('./zlib/deflate');
-const utils        = require('./utils/common');
-const strings      = require('./utils/strings');
-const msg          = require('./zlib/messages');
-const ZStream      = require('./zlib/zstream');
-
-const toString = Object.prototype.toString;
+import { DeflateState } from "./zlib/deflate";
+import * as zlibDeflate from "./zlib/deflate";
+import { ZStream } from "./zlib/zstream";
 
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
 
-const {
-  Z_NO_FLUSH, Z_SYNC_FLUSH, Z_FULL_FLUSH, Z_FINISH,
-  Z_OK, Z_STREAM_END,
-  Z_DEFAULT_COMPRESSION,
-  Z_DEFAULT_STRATEGY,
-  Z_DEFLATED
-} = require('./zlib/constants');
+import {
+	Z_NO_FLUSH,
+	Z_SYNC_FLUSH,
+	Z_FULL_FLUSH,
+	Z_FINISH,
+	Z_OK,
+	Z_STREAM_END,
+	Z_DEFAULT_COMPRESSION,
+	Z_DEFAULT_STRATEGY,
+	Z_DEFLATED,
+} from "./zlib/constants";
+import { assign, flattenChunks } from "./utils/common";
+import { Uint8Array } from "./utils/buffs";
+import messages from "./zlib/messages";
 
 /* ===========================================================================*/
-
 
 /**
  * class Deflate
@@ -59,7 +60,6 @@ const {
  *
  * Error message, if [[Deflate.err]] != 0
  **/
-
 
 /**
  * new Deflate(options)
@@ -108,196 +108,208 @@ const {
  * console.log(deflate.result);
  * ```
  **/
-function Deflate(options) {
-  this.options = utils.assign({
-    level: Z_DEFAULT_COMPRESSION,
-    method: Z_DEFLATED,
-    chunkSize: 16384,
-    windowBits: 15,
-    memLevel: 8,
-    strategy: Z_DEFAULT_STRATEGY
-  }, options || {});
 
-  let opt = this.options;
+type Options = {
+	level: number;
+	method: number;
+	chunkSize: number;
+	windowBits: number;
+	memLevel: number;
+	strategy: number;
+	raw: boolean;
+	gzip: boolean;
+	header?: DeflateState["gzhead"];
+	dictionary?: Uint8Array | string;
+};
 
-  if (opt.raw && (opt.windowBits > 0)) {
-    opt.windowBits = -opt.windowBits;
-  }
+export class Deflate {
+	public options: Exclude<Options, "dictionary"> & { dictionary?: Uint8Array };
+	public err: keyof typeof messages = Z_OK;
+	public msg?: string;
+	public ended = false;
+	public chunks: Uint8Array[] = [];
+	public strm = new ZStream<DeflateState>();
+	public result?: buffer;
 
-  else if (opt.gzip && (opt.windowBits > 0) && (opt.windowBits < 16)) {
-    opt.windowBits += 16;
-  }
+	constructor(options: Partial<Options>) {
+		this.options = assign(
+			{
+				level: Z_DEFAULT_COMPRESSION,
+				method: Z_DEFLATED,
+				chunkSize: 16384,
+				windowBits: 15,
+				memLevel: 8,
+				strategy: Z_DEFAULT_STRATEGY,
+				raw: false,
+				gzip: false,
+			},
+			options || {},
+		) as unknown as typeof this.options;
 
-  this.err    = 0;      // error code, if happens (0 = Z_OK)
-  this.msg    = '';     // error message
-  this.ended  = false;  // used to avoid multiple onEnd() calls
-  this.chunks = [];     // chunks of compressed data
+		let opt = this.options;
 
-  this.strm = new ZStream();
-  this.strm.avail_out = 0;
+		if (opt.raw && opt.windowBits > 0) {
+			opt.windowBits = -opt.windowBits;
+		} else if (opt.gzip && opt.windowBits > 0 && opt.windowBits < 16) {
+			opt.windowBits += 16;
+		}
 
-  let status = zlib_deflate.deflateInit2(
-    this.strm,
-    opt.level,
-    opt.method,
-    opt.windowBits,
-    opt.memLevel,
-    opt.strategy
-  );
+		if (opt.dictionary) {
+			// Convert data if needed
+			let dict = opt.dictionary;
+			if (typeIs(dict, "string")) {
+				dict = Uint8Array.from(buffer.fromstring(dict));
+			}
 
-  if (status !== Z_OK) {
-    throw new Error(msg[status]);
-  }
+			opt.dictionary = dict;
+		}
 
-  if (opt.header) {
-    zlib_deflate.deflateSetHeader(this.strm, opt.header);
-  }
+		this.strm.avail_out = 0;
 
-  if (opt.dictionary) {
-    let dict;
-    // Convert data if needed
-    if (typeof opt.dictionary === 'string') {
-      // If we need to compress text, change encoding to utf8.
-      dict = strings.string2buf(opt.dictionary);
-    } else if (toString.call(opt.dictionary) === '[object ArrayBuffer]') {
-      dict = new Uint8Array(opt.dictionary);
-    } else {
-      dict = opt.dictionary;
-    }
+		const status = zlibDeflate.deflateInit2(
+			this.strm,
+			opt.level,
+			opt.method,
+			opt.windowBits,
+			opt.memLevel,
+			opt.strategy,
+		);
 
-    status = zlib_deflate.deflateSetDictionary(this.strm, dict);
+		if (status !== Z_OK) {
+			error(messages[status]);
+		}
 
-    if (status !== Z_OK) {
-      throw new Error(msg[status]);
-    }
+		if (opt.header) {
+			zlibDeflate.deflateSetHeader(this.strm, opt.header);
+		}
 
-    this._dict_set = true;
-  }
+		if (opt.dictionary) {
+			const status = zlibDeflate.deflateSetDictionary(this.strm, opt.dictionary);
+
+			if (status !== Z_OK) {
+				error(messages[status]);
+			}
+		}
+	}
+
+	/**
+	 * Deflate#push(data[, flush_mode]) -> Boolean
+	 * - data (Uint8Array|ArrayBuffer|String): input data. Strings will be
+	 *   converted to utf8 byte sequence.
+	 * - flush_mode (Number|Boolean): 0..6 for corresponding Z_NO_FLUSH..Z_TREE modes.
+	 *   See constants. Skipped or `false` means Z_NO_FLUSH, `true` means Z_FINISH.
+	 *
+	 * Sends input data to deflate pipe, generating [[Deflate#onData]] calls with
+	 * new compressed chunks. Returns `true` on success. The last data block must
+	 * have `flush_mode` Z_FINISH (or `true`). That will flush internal pending
+	 * buffers and call [[Deflate#onEnd]].
+	 *
+	 * On fail call [[Deflate#onEnd]] with error code and return false.
+	 *
+	 * ##### Example
+	 *
+	 * ```javascript
+	 * push(chunk, false); // push one of data chunks
+	 * ...
+	 * push(chunk, true);  // push last chunk
+	 * ```
+	 **/
+	push(data: Uint8Array | string, flush_mode: boolean | number) {
+		const strm = this.strm;
+		const { chunkSize } = this.options;
+		let status, _flush_mode;
+
+		if (this.ended) {
+			return false;
+		}
+
+		if (flush_mode === ~~flush_mode) _flush_mode = flush_mode;
+		else _flush_mode = flush_mode === true ? Z_FINISH : Z_NO_FLUSH;
+
+		// Convert data if needed
+		if (typeIs(data, "string")) {
+			strm.input = Uint8Array.from(buffer.fromstring(data));
+		}
+
+		strm.next_in = 0;
+		strm.avail_in = strm.input.length;
+
+		for (;;) {
+			if (strm.avail_out === 0) {
+				strm.output = new Uint8Array(chunkSize);
+				strm.next_out = 0;
+				strm.avail_out = chunkSize;
+			}
+
+			// Make sure avail_out > 6 to avoid repeating markers
+			if ((_flush_mode === Z_SYNC_FLUSH || _flush_mode === Z_FULL_FLUSH) && strm.avail_out <= 6) {
+				this.onData(strm.output.subarray(0, strm.next_out));
+				strm.avail_out = 0;
+				continue;
+			}
+
+			status = zlibDeflate.deflate(strm, _flush_mode);
+
+			// Ended => flush and finish
+			if (status === Z_STREAM_END) {
+				if (strm.next_out > 0) {
+					this.onData(strm.output.subarray(0, strm.next_out));
+				}
+				const status = zlibDeflate.deflateEnd(this.strm);
+				this.onEnd(status);
+				this.ended = true;
+				return status === Z_OK;
+			}
+
+			// Flush if out buffer full
+			if (strm.avail_out === 0) {
+				this.onData(strm.output);
+				continue;
+			}
+
+			// Flush if requested and has data
+			if (_flush_mode > 0 && strm.next_out > 0) {
+				this.onData(strm.output.subarray(0, strm.next_out));
+				strm.avail_out = 0;
+				continue;
+			}
+
+			if (strm.avail_in === 0) break;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Deflate#onData(chunk) -> Void
+	 * - chunk (Uint8Array): output data.
+	 *
+	 * By default, stores data blocks in `chunks[]` property and glue
+	 * those in `onEnd`. Override this handler, if you need another behaviour.
+	 **/
+	onData(chunk: Uint8Array) {
+		this.chunks.push(chunk);
+	}
+
+	/**
+	 * Deflate#onEnd(status) -> Void
+	 * - status (Number): deflate status. 0 (Z_OK) on success,
+	 *   other if not.
+	 *
+	 * Called once after you tell deflate that the input stream is
+	 * complete (Z_FINISH). By default - join collected chunks,
+	 * free memory and fill `results` / `err` properties.
+	 **/
+	onEnd(status: keyof typeof messages) {
+		// On success - join
+		if (status === Z_OK) {
+			this.result = flattenChunks(this.chunks.map((chunk) => chunk.buf));
+		}
+		this.chunks = [];
+		this.err = status;
+		this.msg = this.strm.msg;
+	}
 }
-
-/**
- * Deflate#push(data[, flush_mode]) -> Boolean
- * - data (Uint8Array|ArrayBuffer|String): input data. Strings will be
- *   converted to utf8 byte sequence.
- * - flush_mode (Number|Boolean): 0..6 for corresponding Z_NO_FLUSH..Z_TREE modes.
- *   See constants. Skipped or `false` means Z_NO_FLUSH, `true` means Z_FINISH.
- *
- * Sends input data to deflate pipe, generating [[Deflate#onData]] calls with
- * new compressed chunks. Returns `true` on success. The last data block must
- * have `flush_mode` Z_FINISH (or `true`). That will flush internal pending
- * buffers and call [[Deflate#onEnd]].
- *
- * On fail call [[Deflate#onEnd]] with error code and return false.
- *
- * ##### Example
- *
- * ```javascript
- * push(chunk, false); // push one of data chunks
- * ...
- * push(chunk, true);  // push last chunk
- * ```
- **/
-Deflate.prototype.push = function (data, flush_mode) {
-  const strm = this.strm;
-  const chunkSize = this.options.chunkSize;
-  let status, _flush_mode;
-
-  if (this.ended) { return false; }
-
-  if (flush_mode === ~~flush_mode) _flush_mode = flush_mode;
-  else _flush_mode = flush_mode === true ? Z_FINISH : Z_NO_FLUSH;
-
-  // Convert data if needed
-  if (typeof data === 'string') {
-    // If we need to compress text, change encoding to utf8.
-    strm.input = strings.string2buf(data);
-  } else if (toString.call(data) === '[object ArrayBuffer]') {
-    strm.input = new Uint8Array(data);
-  } else {
-    strm.input = data;
-  }
-
-  strm.next_in = 0;
-  strm.avail_in = strm.input.length;
-
-  for (;;) {
-    if (strm.avail_out === 0) {
-      strm.output = new Uint8Array(chunkSize);
-      strm.next_out = 0;
-      strm.avail_out = chunkSize;
-    }
-
-    // Make sure avail_out > 6 to avoid repeating markers
-    if ((_flush_mode === Z_SYNC_FLUSH || _flush_mode === Z_FULL_FLUSH) && strm.avail_out <= 6) {
-      this.onData(strm.output.subarray(0, strm.next_out));
-      strm.avail_out = 0;
-      continue;
-    }
-
-    status = zlib_deflate.deflate(strm, _flush_mode);
-
-    // Ended => flush and finish
-    if (status === Z_STREAM_END) {
-      if (strm.next_out > 0) {
-        this.onData(strm.output.subarray(0, strm.next_out));
-      }
-      status = zlib_deflate.deflateEnd(this.strm);
-      this.onEnd(status);
-      this.ended = true;
-      return status === Z_OK;
-    }
-
-    // Flush if out buffer full
-    if (strm.avail_out === 0) {
-      this.onData(strm.output);
-      continue;
-    }
-
-    // Flush if requested and has data
-    if (_flush_mode > 0 && strm.next_out > 0) {
-      this.onData(strm.output.subarray(0, strm.next_out));
-      strm.avail_out = 0;
-      continue;
-    }
-
-    if (strm.avail_in === 0) break;
-  }
-
-  return true;
-};
-
-
-/**
- * Deflate#onData(chunk) -> Void
- * - chunk (Uint8Array): output data.
- *
- * By default, stores data blocks in `chunks[]` property and glue
- * those in `onEnd`. Override this handler, if you need another behaviour.
- **/
-Deflate.prototype.onData = function (chunk) {
-  this.chunks.push(chunk);
-};
-
-
-/**
- * Deflate#onEnd(status) -> Void
- * - status (Number): deflate status. 0 (Z_OK) on success,
- *   other if not.
- *
- * Called once after you tell deflate that the input stream is
- * complete (Z_FINISH). By default - join collected chunks,
- * free memory and fill `results` / `err` properties.
- **/
-Deflate.prototype.onEnd = function (status) {
-  // On success - join
-  if (status === Z_OK) {
-    this.result = utils.flattenChunks(this.chunks);
-  }
-  this.chunks = [];
-  this.err = status;
-  this.msg = this.strm.msg;
-};
-
 
 /**
  * deflate(data[, options]) -> Uint8Array
@@ -331,17 +343,18 @@ Deflate.prototype.onEnd = function (status) {
  * console.log(pako.deflate(data));
  * ```
  **/
-function deflate(input, options) {
-  const deflator = new Deflate(options);
+export function deflate(input: Uint8Array, options: Partial<Options> = {}) {
+	const deflator = new Deflate(options);
 
-  deflator.push(input, true);
+	deflator.push(input, true);
 
-  // That will never happens, if you don't cheat with options :)
-  if (deflator.err) { throw deflator.msg || msg[deflator.err]; }
+	// That will never happens, if you don't cheat with options :)
+	if (deflator.err) {
+		error(deflator.msg || messages[deflator.err]);
+	}
 
-  return deflator.result;
+	return deflator.result;
 }
-
 
 /**
  * deflateRaw(data[, options]) -> Uint8Array
@@ -351,30 +364,10 @@ function deflate(input, options) {
  * The same as [[deflate]], but creates raw data, without wrapper
  * (header and adler32 crc).
  **/
-function deflateRaw(input, options) {
-  options = options || {};
-  options.raw = true;
-  return deflate(input, options);
+export function deflateRaw(input: Uint8Array, options: Exclude<Partial<Options>, "raw"> = {}) {
+	options = options || {};
+	options.raw = true;
+	return deflate(input, options);
 }
 
-
-/**
- * gzip(data[, options]) -> Uint8Array
- * - data (Uint8Array|ArrayBuffer|String): input data to compress.
- * - options (Object): zlib deflate options.
- *
- * The same as [[deflate]], but create gzip wrapper instead of
- * deflate one.
- **/
-function gzip(input, options) {
-  options = options || {};
-  options.gzip = true;
-  return deflate(input, options);
-}
-
-
-module.exports.Deflate = Deflate;
-module.exports.deflate = deflate;
-module.exports.deflateRaw = deflateRaw;
-module.exports.gzip = gzip;
-module.exports.constants = require('./zlib/constants');
+export * from "./zlib/constants";

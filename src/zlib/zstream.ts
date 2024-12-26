@@ -1,4 +1,7 @@
-'use strict';
+"use strict";
+
+import { Uint8Array } from "../utils/buffs";
+import { Z_UNKNOWN } from "./constants";
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
@@ -19,29 +22,27 @@
 //   misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
-function ZStream() {
-  /* next input byte */
-  this.input = null; // JS specific, because we have no pointers
-  this.next_in = 0;
-  /* number of bytes available at input */
-  this.avail_in = 0;
-  /* total number of input bytes read so far */
-  this.total_in = 0;
-  /* next output byte should be put there */
-  this.output = null; // JS specific, because we have no pointers
-  this.next_out = 0;
-  /* remaining free space at output */
-  this.avail_out = 0;
-  /* total number of bytes output so far */
-  this.total_out = 0;
-  /* last error message, NULL if no error */
-  this.msg = ''/*Z_NULL*/;
-  /* not visible by applications */
-  this.state = null;
-  /* best guess about the data type: binary or text */
-  this.data_type = 2/*Z_UNKNOWN*/;
-  /* adler32 value of the uncompressed data */
-  this.adler = 0;
+export class ZStream<State> {
+	/* next input byte */
+	public input!: Uint8Array; // JS specific, because we have no pointers
+	public next_in = 0;
+	/* number of bytes available at input */
+	public avail_in = 0;
+	/* total number of input bytes read so far */
+	public total_in = 0;
+	/* next output byte should be put there */
+	public output!: Uint8Array; // JS specific, because we have no pointers
+	public next_out = 0;
+	/* remaining free space at output */
+	public avail_out = 0;
+	/* total number of bytes output so far */
+	public total_out = 0;
+	/* last error message, NULL if no error */
+	public msg?: string /*Z_NULL*/;
+	/* not visible by applications */
+	public state!: State;
+	/* best guess about the data type: binary or text */
+	public data_type = Z_UNKNOWN;
+	/* adler32 value of the uncompressed data */
+	public adler = 0;
 }
-
-module.exports = ZStream;

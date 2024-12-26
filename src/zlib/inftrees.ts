@@ -1,4 +1,6 @@
-'use strict';
+"use strict";
+
+import { NumericArrayLike, Uint16Array, Uint8Array } from "../utils/buffs";
 
 // (C) 1995-2013 Jean-loup Gailly and Mark Adler
 // (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
@@ -28,57 +30,64 @@ const CODES = 0;
 const LENS = 1;
 const DISTS = 2;
 
-const lbase = new Uint16Array([ /* Length codes 257..285 base */
-  3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
-  35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0
+const lbase = new Uint16Array([
+	/* Length codes 257..285 base */ 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83,
+	99, 115, 131, 163, 195, 227, 258, 0, 0,
 ]);
 
-const lext = new Uint8Array([ /* Length codes 257..285 extra */
-  16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18,
-  19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 72, 78
+const lext = new Uint8Array([
+	/* Length codes 257..285 extra */ 16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19,
+	20, 20, 20, 20, 21, 21, 21, 21, 16, 72, 78,
 ]);
 
-const dbase = new Uint16Array([ /* Distance codes 0..29 base */
-  1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
-  257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145,
-  8193, 12289, 16385, 24577, 0, 0
+const dbase = new Uint16Array([
+	/* Distance codes 0..29 base */ 1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025,
+	1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 0, 0,
 ]);
 
-const dext = new Uint8Array([ /* Distance codes 0..29 extra */
-  16, 16, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22,
-  23, 23, 24, 24, 25, 25, 26, 26, 27, 27,
-  28, 28, 29, 29, 64, 64
+const dext = new Uint8Array([
+	/* Distance codes 0..29 extra */ 16, 16, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25,
+	25, 26, 26, 27, 27, 28, 28, 29, 29, 64, 64,
 ]);
 
-const inflate_table = (type, lens, lens_index, codes, table, table_index, work, opts) =>
-{
-  const bits = opts.bits;
-      //here = opts.here; /* table entry for duplication */
+export const inflate_table = (
+	ty: number,
+	lens: NumericArrayLike,
+	lens_index: number,
+	codes: number,
+	tbl: NumericArrayLike,
+	table_index: number,
+	work: NumericArrayLike,
+	opts: { bits: number },
+) => {
+	const bits = opts.bits;
+	//here = opts.here; /* table entry for duplication */
 
-  let len = 0;               /* a code's length in bits */
-  let sym = 0;               /* index of code symbols */
-  let min = 0, max = 0;          /* minimum and maximum code lengths */
-  let root = 0;              /* number of index bits for root table */
-  let curr = 0;              /* number of index bits for current table */
-  let drop = 0;              /* code bits to drop for sub-table */
-  let left = 0;                   /* number of prefix codes available */
-  let used = 0;              /* code entries in table used */
-  let huff = 0;              /* Huffman code */
-  let incr;              /* for incrementing code, index */
-  let fill;              /* index for replicating entries */
-  let low;               /* low bits for current root entry */
-  let mask;              /* mask for low root bits */
-  let next;             /* next available space in table */
-  let base = null;     /* base value table to use */
-//  let shoextra;    /* extra bits table to use */
-  let match;                  /* use base and extra for symbol >= match */
-  const count = new Uint16Array(MAXBITS + 1); //[MAXBITS+1];    /* number of codes of each length */
-  const offs = new Uint16Array(MAXBITS + 1); //[MAXBITS+1];     /* offsets in table for each length */
-  let extra = null;
+	let len = 0; /* a code's length in bits */
+	let sym = 0; /* index of code symbols */
+	let min = 0,
+		max = 0; /* minimum and maximum code lengths */
+	let root = 0; /* number of index bits for root table */
+	let curr = 0; /* number of index bits for current table */
+	let drop = 0; /* code bits to drop for sub-table */
+	let left = 0; /* number of prefix codes available */
+	let used = 0; /* code entries in table used */
+	let huff = 0; /* Huffman code */
+	let incr; /* for incrementing code, index */
+	let fill; /* index for replicating entries */
+	let low; /* low bits for current root entry */
+	let mask; /* mask for low root bits */
+	let next_space; /* next available space in table */
+	let base; /* base value table to use */
+	//  let shoextra;    /* extra bits table to use */
+	let match; /* use base and extra for symbol >= match */
+	const count = new Uint16Array(MAXBITS + 1); //[MAXBITS+1];    /* number of codes of each length */
+	const offs = new Uint16Array(MAXBITS + 1); //[MAXBITS+1];     /* offsets in table for each length */
+	let extra;
 
-  let here_bits, here_op, here_val;
+	let here_bits, here_op, here_val;
 
-  /*
+	/*
    Process a set of code lengths to create a canonical Huffman code.  The
    code lengths are lens[0..codes-1].  Each length corresponds to the
    symbols 0..codes-1.  The Huffman code is generated by first sorting the
@@ -109,71 +118,75 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
    decoding tables.
    */
 
-  /* accumulate lengths for codes (assumes lens[] all in 0..MAXBITS) */
-  for (len = 0; len <= MAXBITS; len++) {
-    count[len] = 0;
-  }
-  for (sym = 0; sym < codes; sym++) {
-    count[lens[lens_index + sym]]++;
-  }
+	/* accumulate lengths for codes (assumes lens[] all in 0..MAXBITS) */
+	for (len = 0; len <= MAXBITS; len++) {
+		count[len] = 0;
+	}
+	for (sym = 0; sym < codes; sym++) {
+		count[lens[lens_index + sym]]++;
+	}
 
-  /* bound code lengths, force root to be within code lengths */
-  root = bits;
-  for (max = MAXBITS; max >= 1; max--) {
-    if (count[max] !== 0) { break; }
-  }
-  if (root > max) {
-    root = max;
-  }
-  if (max === 0) {                     /* no symbols to code at all */
-    //table.op[opts.table_index] = 64;  //here.op = (var char)64;    /* invalid code marker */
-    //table.bits[opts.table_index] = 1;   //here.bits = (var char)1;
-    //table.val[opts.table_index++] = 0;   //here.val = (var short)0;
-    table[table_index++] = (1 << 24) | (64 << 16) | 0;
+	/* bound code lengths, force root to be within code lengths */
+	root = bits;
+	for (max = MAXBITS; max >= 1; max--) {
+		if (count[max] !== 0) {
+			break;
+		}
+	}
+	if (root > max) {
+		root = max;
+	}
+	if (max === 0) {
+		/* no symbols to code at all */
+		//table.op[opts.table_index] = 64;  //here.op = (var char)64;    /* invalid code marker */
+		//table.bits[opts.table_index] = 1;   //here.bits = (var char)1;
+		//table.val[opts.table_index++] = 0;   //here.val = (var short)0;
+		tbl[table_index++] = (1 << 24) | (64 << 16) | 0;
 
+		//table.op[opts.table_index] = 64;
+		//table.bits[opts.table_index] = 1;
+		//table.val[opts.table_index++] = 0;
+		tbl[table_index++] = (1 << 24) | (64 << 16) | 0;
 
-    //table.op[opts.table_index] = 64;
-    //table.bits[opts.table_index] = 1;
-    //table.val[opts.table_index++] = 0;
-    table[table_index++] = (1 << 24) | (64 << 16) | 0;
+		opts.bits = 1;
+		return 0; /* no symbols, but wait for decoding to report error */
+	}
+	for (min = 1; min < max; min++) {
+		if (count[min] !== 0) {
+			break;
+		}
+	}
+	if (root < min) {
+		root = min;
+	}
 
-    opts.bits = 1;
-    return 0;     /* no symbols, but wait for decoding to report error */
-  }
-  for (min = 1; min < max; min++) {
-    if (count[min] !== 0) { break; }
-  }
-  if (root < min) {
-    root = min;
-  }
+	/* check for an over-subscribed or incomplete set of lengths */
+	left = 1;
+	for (len = 1; len <= MAXBITS; len++) {
+		left <<= 1;
+		left -= count[len];
+		if (left < 0) {
+			return -1;
+		} /* over-subscribed */
+	}
+	if (left > 0 && (ty === CODES || max !== 1)) {
+		return -1; /* incomplete set */
+	}
 
-  /* check for an over-subscribed or incomplete set of lengths */
-  left = 1;
-  for (len = 1; len <= MAXBITS; len++) {
-    left <<= 1;
-    left -= count[len];
-    if (left < 0) {
-      return -1;
-    }        /* over-subscribed */
-  }
-  if (left > 0 && (type === CODES || max !== 1)) {
-    return -1;                      /* incomplete set */
-  }
+	/* generate offsets into symbol table for each length for sorting */
+	offs[1] = 0;
+	for (len = 1; len < MAXBITS; len++) {
+		offs[len + 1] = offs[len] + count[len];
+	}
 
-  /* generate offsets into symbol table for each length for sorting */
-  offs[1] = 0;
-  for (len = 1; len < MAXBITS; len++) {
-    offs[len + 1] = offs[len] + count[len];
-  }
+	/* sort symbols by length, by symbol order within each length */
+	for (sym = 0; sym < codes; sym++) {
+		if (lens[lens_index + sym] !== 0) {
+			work[offs[lens[lens_index + sym]]++] = sym;
+		}
+	}
 
-  /* sort symbols by length, by symbol order within each length */
-  for (sym = 0; sym < codes; sym++) {
-    if (lens[lens_index + sym] !== 0) {
-      work[offs[lens[lens_index + sym]]++] = sym;
-    }
-  }
-
-  /*
+	/*
    Create and fill in decoding tables.  In this loop, the table being
    filled is at next and has curr index bits.  The code being used is huff
    with length len.  That code is converted to an index by dropping drop
@@ -204,137 +217,133 @@ const inflate_table = (type, lens, lens_index, codes, table, table_index, work, 
    in the rest of the decoding tables with invalid code markers.
    */
 
-  /* set up for code type */
-  // poor man optimization - use if-else instead of switch,
-  // to avoid deopts in old v8
-  if (type === CODES) {
-    base = extra = work;    /* dummy value--not used */
-    match = 20;
+	/* set up for code type */
+	// poor man optimization - use if-else instead of switch,
+	// to avoid deopts in old v8
+	if (ty === CODES) {
+		base = extra = work; /* dummy value--not used */
+		match = 20;
+	} else if (ty === LENS) {
+		base = lbase;
+		extra = lext;
+		match = 257;
+	} else {
+		/* DISTS */
+		base = dbase;
+		extra = dext;
+		match = 0;
+	}
 
-  } else if (type === LENS) {
-    base = lbase;
-    extra = lext;
-    match = 257;
+	/* initialize opts for loop */
+	huff = 0; /* starting code */
+	sym = 0; /* starting code symbol */
+	len = min; /* starting code length */
+	next_space = table_index; /* current table to fill in */
+	curr = root; /* current table index bits */
+	drop = 0; /* current bits to drop from code for index */
+	low = -1; /* trigger new sub-table when len > root */
+	used = 1 << root; /* use root table entries */
+	mask = used - 1; /* mask for comparing low */
 
-  } else {                    /* DISTS */
-    base = dbase;
-    extra = dext;
-    match = 0;
-  }
+	/* check available table space */
+	if ((ty === LENS && used > ENOUGH_LENS) || (ty === DISTS && used > ENOUGH_DISTS)) {
+		return 1;
+	}
 
-  /* initialize opts for loop */
-  huff = 0;                   /* starting code */
-  sym = 0;                    /* starting code symbol */
-  len = min;                  /* starting code length */
-  next = table_index;              /* current table to fill in */
-  curr = root;                /* current table index bits */
-  drop = 0;                   /* current bits to drop from code for index */
-  low = -1;                   /* trigger new sub-table when len > root */
-  used = 1 << root;          /* use root table entries */
-  mask = used - 1;            /* mask for comparing low */
+	/* process all codes and make table entries */
+	for (;;) {
+		/* create table entry */
+		here_bits = len - drop;
+		if (work[sym] + 1 < match) {
+			here_op = 0;
+			here_val = work[sym];
+		} else if (work[sym] >= match) {
+			here_op = extra[work[sym] - match];
+			here_val = base[work[sym] - match];
+		} else {
+			here_op = 32 + 64; /* end of block */
+			here_val = 0;
+		}
 
-  /* check available table space */
-  if ((type === LENS && used > ENOUGH_LENS) ||
-    (type === DISTS && used > ENOUGH_DISTS)) {
-    return 1;
-  }
+		/* replicate for those indices with low len bits equal to huff */
+		incr = 1 << (len - drop);
+		fill = 1 << curr;
+		min = fill; /* save offset to next table */
+		do {
+			fill -= incr;
+			tbl[next_space + (huff >> drop) + fill] = (here_bits << 24) | (here_op << 16) | here_val | 0;
+		} while (fill !== 0);
 
-  /* process all codes and make table entries */
-  for (;;) {
-    /* create table entry */
-    here_bits = len - drop;
-    if (work[sym] + 1 < match) {
-      here_op = 0;
-      here_val = work[sym];
-    }
-    else if (work[sym] >= match) {
-      here_op = extra[work[sym] - match];
-      here_val = base[work[sym] - match];
-    }
-    else {
-      here_op = 32 + 64;         /* end of block */
-      here_val = 0;
-    }
+		/* backwards increment the len-bit code huff */
+		incr = 1 << (len - 1);
+		while (huff & incr) {
+			incr >>= 1;
+		}
+		if (incr !== 0) {
+			huff &= incr - 1;
+			huff += incr;
+		} else {
+			huff = 0;
+		}
 
-    /* replicate for those indices with low len bits equal to huff */
-    incr = 1 << (len - drop);
-    fill = 1 << curr;
-    min = fill;                 /* save offset to next table */
-    do {
-      fill -= incr;
-      table[next + (huff >> drop) + fill] = (here_bits << 24) | (here_op << 16) | here_val |0;
-    } while (fill !== 0);
+		/* go to next symbol, update count, len */
+		sym++;
+		if (--count[len] === 0) {
+			if (len === max) {
+				break;
+			}
+			len = lens[lens_index + work[sym]];
+		}
 
-    /* backwards increment the len-bit code huff */
-    incr = 1 << (len - 1);
-    while (huff & incr) {
-      incr >>= 1;
-    }
-    if (incr !== 0) {
-      huff &= incr - 1;
-      huff += incr;
-    } else {
-      huff = 0;
-    }
+		/* create new sub-table if needed */
+		if (len > root && (huff & mask) !== low) {
+			/* if first time, transition to sub-tables */
+			if (drop === 0) {
+				drop = root;
+			}
 
-    /* go to next symbol, update count, len */
-    sym++;
-    if (--count[len] === 0) {
-      if (len === max) { break; }
-      len = lens[lens_index + work[sym]];
-    }
+			/* increment past last table */
+			next_space += min; /* here min is 1 << curr */
 
-    /* create new sub-table if needed */
-    if (len > root && (huff & mask) !== low) {
-      /* if first time, transition to sub-tables */
-      if (drop === 0) {
-        drop = root;
-      }
+			/* determine length of next table */
+			curr = len - drop;
+			left = 1 << curr;
+			while (curr + drop < max) {
+				left -= count[curr + drop];
+				if (left <= 0) {
+					break;
+				}
+				curr++;
+				left <<= 1;
+			}
 
-      /* increment past last table */
-      next += min;            /* here min is 1 << curr */
+			/* check for enough space */
+			used += 1 << curr;
+			if ((ty === LENS && used > ENOUGH_LENS) || (ty === DISTS && used > ENOUGH_DISTS)) {
+				return 1;
+			}
 
-      /* determine length of next table */
-      curr = len - drop;
-      left = 1 << curr;
-      while (curr + drop < max) {
-        left -= count[curr + drop];
-        if (left <= 0) { break; }
-        curr++;
-        left <<= 1;
-      }
-
-      /* check for enough space */
-      used += 1 << curr;
-      if ((type === LENS && used > ENOUGH_LENS) ||
-        (type === DISTS && used > ENOUGH_DISTS)) {
-        return 1;
-      }
-
-      /* point entry in root table to sub-table */
-      low = huff & mask;
-      /*table.op[low] = curr;
+			/* point entry in root table to sub-table */
+			low = huff & mask;
+			/*table.op[low] = curr;
       table.bits[low] = root;
       table.val[low] = next - opts.table_index;*/
-      table[low] = (root << 24) | (curr << 16) | (next - table_index) |0;
-    }
-  }
+			tbl[low] = (root << 24) | (curr << 16) | (next_space - table_index) | 0;
+		}
+	}
 
-  /* fill in remaining table entry if code is incomplete (guaranteed to have
+	/* fill in remaining table entry if code is incomplete (guaranteed to have
    at most one remaining entry, since if the code is incomplete, the
    maximum code length that was allowed to get this far is one bit) */
-  if (huff !== 0) {
-    //table.op[next + huff] = 64;            /* invalid code marker */
-    //table.bits[next + huff] = len - drop;
-    //table.val[next + huff] = 0;
-    table[next + huff] = ((len - drop) << 24) | (64 << 16) |0;
-  }
+	if (huff !== 0) {
+		//table.op[next + huff] = 64;            /* invalid code marker */
+		//table.bits[next + huff] = len - drop;
+		//table.val[next + huff] = 0;
+		tbl[next_space + huff] = ((len - drop) << 24) | (64 << 16) | 0;
+	}
 
-  /* set return parameters */
-  //opts.table_index += used;
-  opts.bits = root;
-  return 0;
+	/* set return parameters */
+	//opts.table_index += used;
+	opts.bits = root;
+	return 0;
 };
-
-
-module.exports = inflate_table;
