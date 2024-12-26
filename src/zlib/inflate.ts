@@ -19,6 +19,10 @@
 //   misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+import type { ZStream } from "./zstream";
+import type { GZheader } from "./gzheader";
+import type * as TypedArrays from "../utils/typedArrays";
+
 const { adler32 } = require("./adler32") as typeof import("./adler32");
 const { crc32 } = require("./crc32") as typeof import("./crc32");
 const { inflate_fast } = require("./inffast") as typeof import("./inffast");
@@ -31,8 +35,8 @@ const DISTS = 2;
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
 
-import { Int32Array, Uint16Array, Uint8Array } from "../utils/typedArrays";
-import {
+const { Int32Array, Uint16Array, Uint8Array } = require("../utils/typedArrays") as typeof TypedArrays;
+const {
 	Z_STREAM_ERROR,
 	Z_OK,
 	Z_DEFLATED,
@@ -44,9 +48,7 @@ import {
 	Z_MEM_ERROR,
 	Z_FINISH,
 	Z_BUF_ERROR,
-} from "./constants";
-import { ZStream } from "./zstream";
-import { GZheader } from "./gzheader";
+} = require("./constants") as typeof import("./constants");
 
 /* STATES ====================================================================*/
 /* ===========================================================================*/
@@ -118,7 +120,7 @@ export class InflateState {
 	public wsize = 0; /* window size or zero if not using window */
 	public whave = 0; /* valid bytes in the window */
 	public wnext = 0; /* window write index */
-	public window!: Uint8Array; /* allocated sliding window, if needed */
+	public window!: TypedArrays.Uint8Array; /* allocated sliding window, if needed */
 
 	/* bit accumulator */
 	public hold = 0; /* input bit accumulator */
@@ -132,8 +134,8 @@ export class InflateState {
 	public extra = 0; /* extra bits needed */
 
 	/* fixed and dynamic code tables */
-	public lencode!: Int32Array; /* starting table for length/literal codes */
-	public distcode!: Int32Array; /* starting table for distance codes */
+	public lencode!: TypedArrays.Int32Array; /* starting table for length/literal codes */
+	public distcode!: TypedArrays.Int32Array; /* starting table for distance codes */
 	public lenbits = 0; /* index bits for lencode */
 	public distbits = 0; /* index bits for distcode */
 
@@ -152,8 +154,8 @@ export class InflateState {
    as buffers so we don't need codes
   */
 	//this.codes = new Int32Array(ENOUGH);       /* space for code tables */
-	public lendyn!: Int32Array; /* dynamic table for length/literal codes (JS specific) */
-	public distdyn!: Int32Array; /* dynamic table for distance codes (JS specific) */
+	public lendyn!: TypedArrays.Int32Array; /* dynamic table for length/literal codes (JS specific) */
+	public distdyn!: TypedArrays.Int32Array; /* dynamic table for distance codes (JS specific) */
 	public sane = 0; /* if false, allow invalid distance too far */
 	public back = 0; /* bits back of last unprocessed length/lit */
 	public was = 0; /* initial length of match */
@@ -281,7 +283,7 @@ export function inflateInit(strm: ZStream<InflateState>) {
  */
 let virgin = true;
 
-let lenfix: Int32Array, distfix: Int32Array; // We have no pointers in JS, so keep tables separate
+let lenfix: TypedArrays.Int32Array, distfix: TypedArrays.Int32Array; // We have no pointers in JS, so keep tables separate
 
 const fixedtables = (state: InflateState) => {
 	/* build fixed huffman tables if first call (may not be thread safe) */
@@ -338,7 +340,7 @@ const fixedtables = (state: InflateState) => {
  output will fall in the output data, making match copies simpler and faster.
  The advantage may be dependent on the size of the processor's data caches.
  */
-const updatewindow = (strm: ZStream<InflateState>, src: Uint8Array, finish: number, copy: number) => {
+const updatewindow = (strm: ZStream<InflateState>, src: TypedArrays.Uint8Array, finish: number, copy: number) => {
 	let dist;
 	const state = strm.state;
 
@@ -384,7 +386,7 @@ const updatewindow = (strm: ZStream<InflateState>, src: Uint8Array, finish: numb
 
 export function inflate(strm: ZStream<InflateState>, flush: number) {
 	let state;
-	let input: Uint8Array, output: Uint8Array; // input/output buffers
+	let input: TypedArrays.Uint8Array, output: TypedArrays.Uint8Array; // input/output buffers
 	let next_index: number; /* next input INDEX */
 	let put: number; /* next output INDEX */
 	let have: number, left: number; /* available input and output */
@@ -1620,7 +1622,7 @@ export function inflateGetHeader(strm: ZStream<InflateState>, head: GZheader) {
 	return Z_OK;
 }
 
-export function inflateSetDictionary(strm: ZStream<InflateState>, dictionary: Uint8Array) {
+export function inflateSetDictionary(strm: ZStream<InflateState>, dictionary: TypedArrays.Uint8Array) {
 	const dictLength = dictionary.length;
 
 	let state;

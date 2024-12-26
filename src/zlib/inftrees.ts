@@ -1,6 +1,6 @@
 "use strict";
 
-import * as TypedArrays from "../utils/typedArrays";
+import type * as TypedArrays from "../utils/typedArrays";
 type NumericArrayLike = TypedArrays.NumericArrayLike;
 
 const { Uint8Array, Uint16Array } = require("../utils/typedArrays") as typeof TypedArrays;
