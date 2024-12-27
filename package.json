@@ -1,48 +1,54 @@
 {
-  "name": "@rbxts/pako",
-  "version": "1.0.0",
-  "description": "fork of pako for Roblox-TS",
-  "main": "out/init.lua",
-  "scripts": {
-    "build": "rbxtsc",
-    "watch": "rbxtsc -w",
-    "prepublishOnly": "bun run build"
-  },
-  "keywords": [],
-  "contributors": [
-    "Andrei Tuputcyn (https://github.com/andr83)",
-    "Vitaly Puzrin (https://github.com/puzrin)",
-    "Friedel Ziegelmayer (https://github.com/dignifiedquire)",
-    "Kirill Efimov (https://github.com/Kirill89)",
-    "Jean-loup Gailly",
-    "Mark Adler",
-    "daimond113 (https://www.daimond113.com) <contact@daimond113.com>",
-    "Erica Marigold <hi@devcomp.xyz>"
-  ],
-  "author": "",
-  "license": "(MIT AND Zlib)",
-  "types": "out/index.d.ts",
-  "files": [
-    "out",
-    "!**/*.tsbuildinfo"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "devDependencies": {
-    "@rbxts/compiler-types": "3.0.0-types.0",
-    "@rbxts/types": "^1.0.813",
-    "@typescript-eslint/eslint-plugin": "^8.18.2",
-    "@typescript-eslint/parser": "^8.18.2",
-    "eslint": "^9.17.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
-    "eslint-plugin-roblox-ts": "^0.0.36",
-    "prettier": "^3.4.2",
-    "roblox-ts": "^3.0.0",
-    "typescript": "^5.7.2"
-  },
-  "patchedDependencies": {
-    "@rbxts/types@1.0.813": "patches/@rbxts%2Ftypes@1.0.813.patch"
-  }
+	"name": "@rbxts/pako",
+	"version": "0.1.0",
+	"description": "fork of pako for Roblox-TS",
+	"main": "out/init.lua",
+	"scripts": {
+		"build": "rbxtsc --verbose && bun run build.ts",
+		"fmt": "prettier -w . && stylua .",
+		"watch": "rbxtsc -w",
+		"prepublishOnly": "bun run build"
+	},
+	"keywords": [],
+	"contributors": [
+		"Andrei Tuputcyn (https://github.com/andr83)",
+		"Vitaly Puzrin (https://github.com/puzrin)",
+		"Friedel Ziegelmayer (https://github.com/dignifiedquire)",
+		"Kirill Efimov (https://github.com/Kirill89)",
+		"Jean-loup Gailly",
+		"Mark Adler",
+		"daimond113 (https://www.daimond113.com) <contact@daimond113.com>",
+		"Erica Marigold <hi@devcomp.xyz>"
+	],
+	"author": "",
+	"license": "(MIT AND Zlib)",
+	"types": "out/index.d.ts",
+	"files": [
+		"out",
+		"!**/*.tsbuildinfo"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"devDependencies": {
+		"@johnnymorganz/stylua-bin": "^2.0.2",
+		"@rbxts/compiler-types": "3.0.0-types.0",
+		"@rbxts/types": "^1.0.813",
+		"@types/bun": "^1.1.14",
+		"@typescript-eslint/eslint-plugin": "^8.18.2",
+		"@typescript-eslint/parser": "^8.18.2",
+		"eslint": "^9.17.0",
+		"eslint-config-prettier": "^9.1.0",
+		"eslint-plugin-prettier": "^5.2.1",
+		"eslint-plugin-roblox-ts": "^0.0.36",
+		"prettier": "^3.4.2",
+		"roblox-ts": "^3.0.0",
+		"typescript": "^5.7.2"
+	},
+	"patchedDependencies": {
+		"@rbxts/types@1.0.813": "patches/@rbxts%2Ftypes@1.0.813.patch"
+	},
+	"trustedDependencies": [
+		"@johnnymorganz/stylua-bin"
+	]
 }

@@ -21,20 +21,18 @@ Copyright:
 (C) 1995-2013 Jean-loup Gailly and Mark Adler
 (C) 2014-2017 Vitaly Puzrin and Andrey Tupitsin
 
-
-From zlib's README
-=============================================================================
+# From zlib's README
 
 Acknowledgments:
 
-  The deflate format used by zlib was defined by Phil Katz.  The deflate and
-  zlib specifications were written by L.  Peter Deutsch.  Thanks to all the
-  people who reported problems and suggested various improvements in zlib; they
-  are too numerous to cite here.
+The deflate format used by zlib was defined by Phil Katz. The deflate and
+zlib specifications were written by L. Peter Deutsch. Thanks to all the
+people who reported problems and suggested various improvements in zlib; they
+are too numerous to cite here.
 
 Copyright notice:
 
- (C) 1995-2013 Jean-loup Gailly and Mark Adler
+(C) 1995-2013 Jean-loup Gailly and Mark Adler
 
 Copyright (c) <''year''> <''copyright holders''>
 
@@ -54,6 +52,5 @@ freely, subject to the following restrictions:
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 
-
-  Jean-loup Gailly        Mark Adler
-  jloup@gzip.org          madler@alumni.caltech.edu
+Jean-loup Gailly Mark Adler
+jloup@gzip.org madler@alumni.caltech.edu

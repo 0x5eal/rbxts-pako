@@ -1,0 +1,30 @@
+name = "0x5eal/pako"
+version = "0.1.0"
+description = "ZLib port for JavaScript, compiled to Luau"
+repository = "https://github.com/0x5eal/rbxts-pako"
+license = "MIT"
+authors = [
+    "Andrei Tuputcyn (https://github.com/andr83)",
+    "Vitaly Puzrin (https://github.com/puzrin)",
+    "Friedel Ziegelmayer (https://github.com/dignifiedquire)",
+    "Kirill Efimov (https://github.com/Kirill89)",
+    "Jean-loup Gailly",
+    "Mark Adler",
+    "daimond113 (https://www.daimond113.com) <contact@daimond113.com>",
+    "Erica Marigold <hi@devcomp.xyz>"
+]
+
+includes = [
+    "pesde.toml", 
+    "README.md", 
+    "out/**/*.luau", 
+    "!out/*.tsbuildinfo", 
+    "!out/**/*.d.ts"
+]
+
+[target]
+environment = "luau"
+lib = "out/init.luau"
+
+[indices]
+default = "https://github.com/pesde-pkg/index"

@@ -1,4 +1,8 @@
+# ts 
 /node_modules
 /out
 /include
 *.tsbuildinfo
+
+# pesde
+*_packages/

@@ -24,7 +24,8 @@ import type { TreeDesc } from "./trees";
 import type Messages from "./messages";
 import type * as TypedArrays from "../utils/typedArrays";
 
-const { _tr_init, _tr_stored_block, _tr_flush_block, _tr_tally, _tr_align } = require("./trees") as typeof import("./trees");
+const { _tr_init, _tr_stored_block, _tr_flush_block, _tr_tally, _tr_align } =
+	require("./trees") as typeof import("./trees");
 const { adler32 } = require("./adler32") as typeof import("./adler32");
 const { crc32 } = require("./crc32") as typeof import("./crc32");
 const {

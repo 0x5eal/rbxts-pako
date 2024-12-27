@@ -1,20 +1,20 @@
 "use strict";
 
 import type { DeflateState } from "./zlib/deflate";
-import type Messages from "./zlib/messages"
-import type * as TypedArrays from "./utils/typedArrays"; 
+import type Messages from "./zlib/messages";
+import type * as TypedArrays from "./utils/typedArrays";
 
 const { ZStream } = require("./zlib/zstream") as typeof import("./zlib/zstream");
 const zlibDeflate = require("./zlib/deflate") as typeof import("./zlib/deflate");
 const messages = require("./zlib/messages") as typeof Messages;
 
 const { assign, flattenChunks } = require("./utils/common") as typeof import("./utils/common");
-const { Uint8Array } = require("./utils/typedArrays") as typeof TypedArrays; 
+const { Uint8Array } = require("./utils/typedArrays") as typeof TypedArrays;
 
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
 
-export const {
+const {
 	Z_NO_FLUSH,
 	Z_SYNC_FLUSH,
 	Z_FULL_FLUSH,
@@ -113,7 +113,7 @@ export const {
  * ```
  **/
 
-type Options = {
+export type Options = {
 	level: number;
 	method: number;
 	chunkSize: number;
@@ -238,7 +238,7 @@ export class Deflate {
 		strm.next_in = 0;
 		strm.avail_in = strm.input.length;
 
-		for (; ;) {
+		for (;;) {
 			if (strm.avail_out === 0) {
 				strm.output = new Uint8Array(chunkSize);
 				strm.next_out = 0;

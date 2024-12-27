@@ -1,7 +1,7 @@
 "use strict";
 
 import type { InflateState } from "./zlib/inflate";
-import type Messages from "./zlib/messages";  
+import type Messages from "./zlib/messages";
 import type * as TypedArrays from "./utils/typedArrays";
 
 const zlibInflate = require("./zlib/inflate") as typeof import("./zlib/inflate");
@@ -14,16 +14,8 @@ const { assign, flattenChunks } = require("./utils/common") as typeof import("./
 
 /* Public constants ==========================================================*/
 /* ===========================================================================*/
-export const {
-	Z_NO_FLUSH,
-	Z_FINISH,
-	Z_OK,
-	Z_STREAM_END,
-	Z_NEED_DICT,
-	Z_STREAM_ERROR,
-	Z_DATA_ERROR,
-	Z_MEM_ERROR,
-} = require("./zlib/constants") as typeof import("./zlib/constants");
+const { Z_NO_FLUSH, Z_FINISH, Z_OK, Z_STREAM_END, Z_NEED_DICT, Z_STREAM_ERROR, Z_DATA_ERROR, Z_MEM_ERROR } =
+	require("./zlib/constants") as typeof import("./zlib/constants");
 
 /* ===========================================================================*/
 
@@ -104,7 +96,7 @@ export const {
  * ```
  **/
 
-type Options = {
+export type Options = {
 	chunkSize: number;
 	windowBits: number;
 	to: string;

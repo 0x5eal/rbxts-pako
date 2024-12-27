@@ -1,6 +1,6 @@
 "use strict";
 
-import type * as TypedArrays from "../utils/typedArrays"; 
+import type * as TypedArrays from "../utils/typedArrays";
 
 const { Z_UNKNOWN } = require("./constants") as typeof import("./constants");
 
