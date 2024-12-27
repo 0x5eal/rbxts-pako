@@ -1,6 +1,6 @@
 {
 	"editor.formatOnSave": true,
-	"[ts][jsonc][json][markdown]": {
+	"[typescript][jsonc][json][markdown]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"[lua][luau]": {
