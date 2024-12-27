@@ -1,3 +1,8 @@
 {
-	"recommendations": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint", "DavidAnson.vscode-markdownlint"]
+	"recommendations": [
+		"esbenp.prettier-vscode",
+		"JohnnyMorganz.stylua",
+		"dbaeumer.vscode-eslint",
+		"DavidAnson.vscode-markdownlint"
+	]
 }

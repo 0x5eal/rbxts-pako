@@ -1,4 +1,9 @@
 {
 	"editor.formatOnSave": true,
-	"editor.defaultFormatter": "esbenp.prettier-vscode"
+	"[ts][jsonc][json][markdown]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[lua][luau]": {
+		"editor.defaultFormatter": "JohnnyMorganz.stylua"
+	}
 }
