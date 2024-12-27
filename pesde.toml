@@ -16,7 +16,8 @@ authors = [
 
 includes = [
     "pesde.toml", 
-    "README.md", 
+    "README.md",
+    "LICENSE",
     "out/**/*.luau", 
     "!out/*.tsbuildinfo", 
     "!out/**/*.d.ts"
